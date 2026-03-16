@@ -1,0 +1,45 @@
+name: Generate Map Index
+
+on:
+  push:
+    paths:
+      - 'maps/**'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Generate index.json files
+        run: |
+          for dir in maps/ra2only maps/yr; do
+            if [ -d "$dir" ]; then
+              echo "Processing $dir"
+
+              files=$(find "$dir" -maxdepth 1 -type f -name "*.map" -printf '%f\n' | sort)
+
+              echo "[" > "$dir/index.json"
+              first=true
+              for file in $files; do
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo "," >> "$dir/index.json"
+                fi
+                echo "  \"$file\"" >> "$dir/index.json"
+              done
+              echo "]" >> "$dir/index.json"
+            fi
+          done
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add maps/**/index.json
+          git diff --cached --quiet || git commit -m "Auto-update map index"
+          git push
