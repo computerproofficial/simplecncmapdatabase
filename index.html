@@ -4,25 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>C&C Map Database</title>
+<link rel="icon" href="data:,">
 <style>
 :root{--bg:#0f1115;--card:#1a1d24;--text:#e6e6e6;--accent:#4da3ff;--border:#2a2f3a}
+*{box-sizing:border-box}
 body{margin:0;font-family:system-ui,Arial;background:var(--bg);color:var(--text)}
 header{padding:16px;text-align:center;font-size:1.4rem;font-weight:600}
 .container{max-width:900px;margin:auto;padding:16px}
 .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
-button.filter{background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer}
+button.filter{background:var(--card);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer;transition:.2s}
 button.filter.active{background:var(--accent);color:#000}
+button.filter:hover{opacity:.85}
 .search{flex:1;min-width:200px}
 .search input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
 .map-list{display:grid;gap:12px}
-.map-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+.map-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;transition:.2s}
+.map-card:hover{transform:translateY(-2px)}
 .map-title{font-weight:600;margin-bottom:6px}
 .map-file{font-size:.9rem;color:#aaa}
 .download{margin-top:10px;display:inline-block;background:var(--accent);color:#000;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:600}
 .empty{text-align:center;padding:30px;color:#aaa}
-@media (max-width:600px){
-header{font-size:1.2rem}
-}
+@media (max-width:600px){header{font-size:1.2rem}}
 </style>
 </head>
 <body>
@@ -40,6 +42,8 @@ header{font-size:1.2rem}
 <script>
 let currentDir="ra2only";
 let maps=[];
+
+const BASE = "./maps"; // FIXED PATH
 
 const ra2Btn=document.getElementById("ra2Btn");
 const yrBtn=document.getElementById("yrBtn");
@@ -61,7 +65,8 @@ currentDir="yr";
 loadMaps();
 };
 
-search.oninput=render;
+// LIVE SEARCH
+search.addEventListener("input", render);
 
 async function loadMaps(){
 maps=[];
@@ -69,15 +74,18 @@ mapList.innerHTML="";
 empty.style.display="none";
 
 try{
-const res=await fetch(`./${currentDir}/index.json`);
+const res=await fetch(`${BASE}/${currentDir}/index.json`);
 const files=await res.json();
 
 for(const file of files){
-const text=await fetch(`./${currentDir}/${file}`).then(r=>r.text());
+const text=await fetch(`${BASE}/${currentDir}/${file}`).then(r=>r.text());
 const name=parseMapName(text)||file;
-
 maps.push({name,file});
 }
+
+// SORT A-Z ALWAYS
+maps.sort((a,b)=>a.name.localeCompare(b.name));
+
 render();
 }catch(e){
 empty.style.display="block";
@@ -93,17 +101,23 @@ return line.replace("Name=","").trim();
 }
 
 function render(){
-const q=search.value.toLowerCase();
+const q=search.value.trim().toLowerCase();
 mapList.innerHTML="";
 
-const filtered=maps.filter(m=>
+// IF EMPTY SEARCH → SHOW ALL SORTED
+let filtered = maps;
+
+if(q.length>0){
+filtered = maps.filter(m=>
 m.name.toLowerCase().includes(q) || m.file.toLowerCase().includes(q)
 );
+}
 
 if(!filtered.length){
 empty.style.display="block";
 return;
 }
+
 empty.style.display="none";
 
 for(const m of filtered){
@@ -113,7 +127,7 @@ card.className="map-card";
 card.innerHTML=`
 <div class="map-title">${m.name}</div>
 <div class="map-file">File name: <code>${m.file}</code></div>
-<a class="download" href="./${currentDir}/${m.file}" download>Download</a>
+<a class="download" href="${BASE}/${currentDir}/${m.file}" download>Download</a>
 `;
 
 mapList.appendChild(card);
