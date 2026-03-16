@@ -1,25 +1,52 @@
-- name: Generate Map Index
-  run: |
-    for dir in maps/ra2only maps/yr; do
-      if [ -d "$dir" ]; then
-        echo "Processing $dir"
+name: Generate Map Index
 
-        echo "[" > "$dir/index.json"
+on:
+  push:
+    paths:
+      - 'maps/**'
+  workflow_dispatch:
 
-        first=true
-        find "$dir" -maxdepth 1 -type f -name "*.map" -print0 | sort -z | while IFS= read -r -d '' file; do
-          filename=$(basename "$file")
+permissions:
+  contents: write
 
-          if [ "$first" = true ]; then
-            first=false
-          else
-            echo "," >> "$dir/index.json"
-          fi
+jobs:
+  generate:
+    runs-on: ubuntu-latest
 
-          printf "  \"%s\"" "$filename" >> "$dir/index.json"
-        done
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-        echo "" >> "$dir/index.json"
-        echo "]" >> "$dir/index.json"
-      fi
-    done
+      - name: Generate index.json files
+        run: |
+          for dir in maps/ra2only maps/yr; do
+            if [ -d "$dir" ]; then
+              echo "Processing $dir"
+
+              echo "[" > "$dir/index.json"
+
+              first=true
+              find "$dir" -maxdepth 1 -type f -name "*.map" -print0 | sort -z | while IFS= read -r -d '' file; do
+                filename=$(basename "$file")
+
+                if [ "$first" = true ]; then
+                  first=false
+                else
+                  echo "," >> "$dir/index.json"
+                fi
+
+                printf "  \"%s\"" "$filename" >> "$dir/index.json"
+              done
+
+              echo "" >> "$dir/index.json"
+              echo "]" >> "$dir/index.json"
+            fi
+          done
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add maps/**/index.json
+          git diff --cached --quiet || git commit -m "Auto-update index.json"
+          git push
